@@ -1,0 +1,69 @@
+Instructions on building the SAC R utilities.
+
+Eventually, this will evolve into a configure and build system.  Until then,
+these manual instructions will suffice.
+
+It is assumed that you have a functioning R and a functioning SAC available.
+
+1.  You will use R to build the package from the source code in sacutils.c.
+    Before you do this, you need to locate the SAC library for XAPIIR and
+    the Fortran runtime libraries.
+
+    The SAC library for XAPIIR typically be in /usr/local/lib/libxapiir.a.  (If
+    you installed it in a non-standard place, use that directory prefix rather
+    than /usr/local/lib).  For the rest of these instructions, the library will
+    be assumed to be located in /usr/local/lib.
+
+    Locate the runtime libraries for gfortran.  The SAC I/O routines normally
+    are linked with a program with your Fortran compiler (gfortran or g77).
+    The Fortran runtime library locations is a bit more obscure.  A good
+    initial guess is /usr/local/gfortran/lib.  If the file
+
+       /usr/local/gfortran/lib/libgfortran.a
+
+    exists, seek no further.  If not, compile a simple program to see what
+    gets linked to it.  Issue the following commands:
+
+    echo '      program main' > /tmp/test.f
+    echo '      end'         >> /tmp/test.f
+    gfortran -v -o /tmp/test /tmp/test.f
+
+    Examine the result of the very verbose output.  Towards the end of the
+    output, you'll see the lines 
+
+    ...
+    as -arch i386 -force_cpusubtype_ALL -o /var/folders/Ho/HoZq007-2RmTv++8ZLt2VU+++TM/-Tmp-//cc6aNyhy.o /var/folders/Ho/HoZq007-2RmTv++8ZLt2VU+++TM/-Tmp-//cc5hfxo5.s
+    COMPILER_PATH=/usr/local/gfortran/libexec/gcc/i386-apple-darwin8.10.1/4.5.0/:/usr/local/gfortran/libexec/gcc/i386-apple-darwin8.10.1/4.5.0/:/usr/local/gfortran/libexec/gcc/i386-apple-darwin8.10.1/:/usr/local/gfortran/lib/gcc/i386-apple-darwin8.10.1/4.5.0/:/usr/local/gfortran/lib/gcc/i386-apple-darwin8.10.1/
+    LIBRARY_PATH=/usr/local/gfortran/lib/gcc/i386-apple-darwin8.10.1/4.5.0/:/usr/local/gfortran/lib/gcc/i386-apple-darwin8.10.1/4.5.0/../../../:/usr/lib/
+    COLLECT_GCC_OPTIONS='-mmacosx-version-min=10.6.8' '-v' '-o' '/tmp/test' '-shared-libgcc' '-mtune=generic'
+    /usr/local/gfortran/libexec/gcc/i386-apple-darwin8.10.1/4.5.0/collect2 -dynamic -arch i386 -macosx_version_min 10.6.8 -weak_reference_mismatches non-weak -o /tmp/test -lcrt1.10.5.o -L/usr/local/gfortran/lib/gcc/i386-apple-darwin8.10.1/4.5.0 -L/usr/local/gfortran/lib/gcc/i386-apple-darwin8.10.1/4.5.0/../../.. /var/folders/Ho/HoZq007-2RmTv++8ZLt2VU+++TM/-Tmp-//cc6aNyhy.o -lgfortran -lgcc_s.10.5 -lgcc -lSystem
+    COLLECT_GCC_OPTIONS='-mmacosx-version-min=10.6.8' '-v' '-o' '/tmp/test' '-shared-libgcc' '-mtune=generic'
+
+    The line with .../collect2 is the important one.  Look at all the strings
+    on it that begin with -L/... There are two -- there may be more, however.
+    Examine each of them for that file:
+
+    ls /usr/local/gfortran/lib/gcc/i386-apple-darwin8.10.1/4.5.0
+    
+    ls /usr/local/gfortran/lib/gcc/i386-apple-darwin8.10.1/4.5.0/../../..
+
+    In this case, the second library has it, so the library to be used is
+    /usr/local/gfortran/lib/gcc
+
+
+3.  Build the dynamically loadable library, sacutils.so, using the two libraries
+    that you found:
+
+    R CMD SHLIB sacutils.c -L/usr/local/lib -lxapiir -L/usr/local/gfortran/lib -lgfortran
+
+    This will produce a file called sacutils.so
+
+4.  Test.  Run R in the directory containing sacutils.so.  Issue these
+    commands while in R:
+
+    source('sacutils.R')
+    demo()
+
+    If you see a plot of a seismogram, congratulations!  If you don't,
+    troubleshoot your build.  Probably, you lack some libraries that you
+    need to include on the R CMD SHLIB command, above.
