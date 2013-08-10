@@ -1,0 +1,15 @@
+# Makefile for sacRUtils
+#
+FLIBS= @FLIBS@
+FRTLIBS= @FRTLIBS@
+
+default:
+	R CMD SHLIB sacutils.c ${FLIBS} -lxapiir ${FRTLIBS}
+
+clean:
+	/bin/rm -f *.o config.log config.status
+	/bin/rm -rf autom4te.cache
+
+distclean:
+	/bin/rm -f *.o *.so config.log config.status
+	/bin/rm -rf autom4te.cache Makefile
