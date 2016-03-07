@@ -17,21 +17,22 @@
    file name requires a change to the source code.  Thus a dynamically
    loaded object file called XXX.so gets initialized by calling R_init_XXX.
 
-   At present, only the xapiir routine is provided for R use.
-   Future plan is to provide access to headers and traces through a SAC
-   trace object with field-like accessors (probably implemented as a list
-   with different named list elements for each field in the header).
+   At present, there two routines provided for R use:
+      - read SAC file headers and, optionally data;
+      - the xapiir filtering routines.
 
    Should implement functions of:
-      read header
-      read header & data
-      write header & data (pending)
+        SAC facility      | R routine
+      --------------------+------------
+      read header         |   rsac
+      read header & data  |   rsac
+      write header & data |  (not yet implemented)
 
    G. Helffrich/U. Bristol
       17 June 2012
-      Revised 8 Aug. 2013
+      Revised 8 Aug. 2013, 7 Mar. 2016
 
-   Copyright (c) 2013 by G. Helffrich.
+   Copyright (c) 2013-2016 by G. Helffrich.
    All rights reserved.
  
    Redistribution and use in source and binary forms, with or without
@@ -396,14 +397,14 @@ static SEXP newRSAC(SEXP nm){
 
    /* Allocate name vector and set up unusual names */
    PROTECT(fld = allocVector(STRSXP, nfld+3));
-   SET_VECTOR_ELT(fld, 0, mkChar("name"));
-   SET_VECTOR_ELT(fld, 1, mkChar("ydata"));
-   SET_VECTOR_ELT(fld, 2, mkChar("xdata"));
+   SET_STRING_ELT(fld, 0, mkChar("name"));
+   SET_STRING_ELT(fld, 1, mkChar("ydata"));
+   SET_STRING_ELT(fld, 2, mkChar("xdata"));
 
    /* Allocate rest of field names in header, then associate with
       resulting object */
    for(i=0; i<nfld; i++)
-      SET_VECTOR_ELT(fld, 3+i, mkChar(flds[i].name));
+      SET_STRING_ELT(fld, 3+i, mkChar(flds[i].name));
    setAttrib(res, R_NamesSymbol, fld);
    UNPROTECT(1);
 
@@ -415,7 +416,7 @@ static SEXP newRSAC(SEXP nm){
 
    /* Stuff in undefined values of each type */
    for(i=0; i<nfld; i++) {
-      SEXP fld, val;
+      SEXP fld;
       switch (flds[i].stype) {
       case REALSXP:
          PROTECT(fld = allocVector(REALSXP,1));
@@ -431,7 +432,7 @@ static SEXP newRSAC(SEXP nm){
 	 break;
       case STRSXP:
          PROTECT(fld = allocVector(STRSXP,1));
-         SET_VECTOR_ELT(fld, 0, NA_STRING);
+         SET_STRING_ELT(fld, 0, NA_STRING);
 	 break;
       default:
 	 error("**RSAC internal error:  Unexpected R SEXP type (object"
@@ -472,7 +473,7 @@ static SEXP rsac(SEXP nm, SEXP hdr){
    
    */
 
-   SEXP res, fldnames, name, val;
+   SEXP res;
    int hdronly = asLogical(hdr);
    int def;
    FILE *fd = NULL;
@@ -500,15 +501,15 @@ static SEXP rsac(SEXP nm, SEXP hdr){
       int lbuf[N_LBUF];
       char kbuf[N_KBUF];
 
-      if (def = (0 != stat(CHAR(STRING_ELT(nm, 0)), &info))) break;
-      if (def = (info.st_size < 158*4)) break;
+      if ((def = (0 != stat(CHAR(STRING_ELT(nm, 0)), &info)))) break;
+      if ((def = (info.st_size < 158*4))) break;
       fd = fopen(CHAR(STRING_ELT(nm, 0)), "r");
-      if (def = (fd == NULL)) break;
-      if (def = N_FBUF != fread(fbuf, sizeof(float), N_FBUF, fd)) break;
-      if (def = N_NBUF != fread(nbuf, sizeof(int),   N_NBUF, fd)) break;
-      if (def = N_IBUF != fread(ibuf, sizeof(int),   N_IBUF, fd)) break;
-      if (def = N_LBUF != fread(lbuf, sizeof(int),   N_LBUF, fd)) break;
-      if (def = N_KBUF != fread(kbuf, sizeof(char),  N_KBUF, fd)) break;
+      if ((def = (fd == NULL))) break;
+      if ((def = N_FBUF != fread(fbuf, sizeof(float), N_FBUF, fd))) break;
+      if ((def = N_NBUF != fread(nbuf, sizeof(int),   N_NBUF, fd))) break;
+      if ((def = N_IBUF != fread(ibuf, sizeof(int),   N_IBUF, fd))) break;
+      if ((def = N_LBUF != fread(lbuf, sizeof(int),   N_LBUF, fd))) break;
+      if ((def = N_KBUF != fread(kbuf, sizeof(char),  N_KBUF, fd))) break;
 
       /* Have file header.  Make checks as to validity. */
       swp = nbuf[6] != 6;
@@ -516,7 +517,6 @@ static SEXP rsac(SEXP nm, SEXP hdr){
 
       /* Have recognizable file header.  Decode values and set into R object */
       for(i=0; i<nfld; i++) {
-	 SEXP fld, val;
 	 float fval;
 	 int j, k, nval, lval, iraw, ix=flds[i].foff-1;
          char *nm = flds[i].name, *ival, *kval;
@@ -537,7 +537,7 @@ static SEXP rsac(SEXP nm, SEXP hdr){
 	    iraw = swp ? swapn(A(ibuf,ix)) : ibuf[ix];
 	    if (iraw != -12345) {
 	       ival = iencode(iraw);
-	       if (ival) SET_VECTOR_ELT(getLE(res, nm), 0, mkChar(ival));
+	       if (ival) SET_STRING_ELT(getLE(res, nm), 0, mkChar(ival));
 	    }
 	    break;
 	 case khdr:
@@ -546,7 +546,7 @@ static SEXP rsac(SEXP nm, SEXP hdr){
 	    for(k = j-1; k>=0; k--)
 	       if (kval[k] != '\0' && kval[k] != ' ') break;
 	    if (k>=0 && (k != 5 || 0 != strncmp("-12345",kval,6)))
-	       SET_VECTOR_ELT(getLE(res, nm), 0, mkCharLen(kval,k+1));
+	       SET_STRING_ELT(getLE(res, nm), 0, mkCharLen(kval,k+1));
 	    break;
 	 default:
             fclose(fd);
@@ -688,5 +688,8 @@ void R_init_sacutils(DllInfo *info){
 }
 
 void R_unload_sacutils(DllInfo *info){
+#if DEBUG
+   Rprintf("**Unloaded SACUTILS\n");
+#endif
 
 }

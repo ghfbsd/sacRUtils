@@ -38,7 +38,7 @@
 ##       As for sacbp() but a band reject filter.
 
 rsac<-function(fn,hdronly=F){
-   if (!exists('readsac')) dyn.load('sacutils.so')
+   if (!is.loaded('readsac')) dyn.load('sacutils.so')
    .Call('readsac', fn, hdronly, PACKAGE='sacutils')
 }
 
@@ -77,28 +77,28 @@ sacdemo<-function(type='basic'){
 }
 
 saclp<-function(dat,dt,f,poles=1,passes=1,type='BUTTER',tran=c(0,0)){
-   if (!exists('xapiir')) dyn.load('sacutils.so')
+   if (!is.loaded('readsac')) dyn.load('sacutils.so')
    .C('xapiir',
       dat, length(dat), type, tran[1], tran[2], as.integer(poles), 'LP',
       0,f,dt,as.integer(passes), PACKAGE='sacutils')[[1]]
 }
 
 sachp<-function(dat,dt,f,poles=1,passes=1,type='BUTTER',tran=c(0,0)){
-   if (!exists('xapiir')) dyn.load('sacutils.so')
+   if (!is.loaded('readsac')) dyn.load('sacutils.so')
    .C('xapiir',
       dat, length(dat), type, tran[1], tran[2], as.integer(poles), 'HP',
       0,f,dt,as.integer(passes), PACKAGE='sacutils')[[1]]
 }
 
 sacbp<-function(dat,dt,flo,fhi,poles=1,passes=1,type='BUTTER',tran=c(0,0)){
-   if (!exists('xapiir')) dyn.load('sacutils.so')
+   if (!is.loaded('readsac')) dyn.load('sacutils.so')
    .C('xapiir',
       dat, length(dat), type, tran[1], tran[2], as.integer(poles), 'BP',
       flo,fhi,dt,as.integer(passes), PACKAGE='sacutils')[[1]]
 }
 
 sacbr<-function(dat,dt,flo,fhi,poles=1,passes=1,type='BUTTER',tran=c(0,0)){
-   if (!exists('xapiir')) dyn.load('sacutils.so')
+   if (!is.loaded('readsac')) dyn.load('sacutils.so')
    .C('xapiir',
       dat, length(dat), type, tran[1], tran[2], as.integer(poles), 'BR',
       flo,fhi,dt,as.integer(passes), PACKAGE='sacutils')[[1]]
